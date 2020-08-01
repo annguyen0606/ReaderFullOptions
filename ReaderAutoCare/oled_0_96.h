@@ -2,8 +2,9 @@
 #include "SH1106.h"
 #include "SSD1306Wire.h"
 
-
-SH1106 display(0x3c, 21, 22);
+#define SCL 22
+#define SDA 21
+SH1106 display(0x3c, SDA, SCL);
 
 
 void drawProgressBarDemo(int &currentLoad,int &counter, int &goalValue) {

@@ -13,8 +13,7 @@
 #include "ChuongThongBao.h"
 #include "LibrarySIM800.h"
 
-#define SS_PIN 22
-#define RST_PIN 21
+
 #define FIREBASE_HOST "cloud-nfc-proj.firebaseio.com"
 #define FIREBASE_AUTH "XYcRpajciWgqrcQNUWovKfSOEUTUFv5hgkyGEvnI"
 #ifdef __cplusplus
@@ -139,11 +138,13 @@ String ReadTagNFC() {
     }    
   }
 }
-int function = 0;
+int functionRead = 0;
+int functionSend = 0;
 void setup() {
 
   Init_Module_Reader();
-  
+  pinMode (PIN_BUZZER, OUTPUT);
+  digitalWrite (PIN_BUZZER, HIGH);
   Serial.begin(9600);
   Init_Oled();
   Oled_print(33,20,"Welcome");
@@ -154,7 +155,6 @@ void setup() {
   int counter = 1;
   int goalValue = 0;
   int currentLoad = 0;  
-  Serial.println("Connecting");
 SettingWifi:
   while (WiFi.status() != WL_CONNECTED) {
     goalValue += 8;
@@ -165,73 +165,121 @@ SettingWifi:
       //GetWifi();
       break;
     }    
-    Serial.print(".");
     delay(500);
   }
-  Serial.println("");
-  Serial.print("Connected to WiFi network with IP Address: ");
+  Oled_print(55,20,"Wifi ready");
+  delay(1500);
+  Oled_print(55,20,"Setup 4G");
+  if(InitSIM()){
+    Oled_print(55,20,"4G ready");  
+  }else{
+    while(1){
+      Oled_print(55,20,"4G Failed");  
+      delay(1000);  
+      Oled_print(60,20,"Please Reset");  
+      delay(1000);  
+    }
+  }
+  delay(1000);
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  Serial.println(WiFi.localIP());
-  Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
-  ntpUDP.begin(6688);
-  pinMode (PIN_BUZZER, OUTPUT);
-  digitalWrite (PIN_BUZZER, HIGH);
+  
 
+  
   pinMode (FUNCTION_READ125, INPUT_PULLDOWN);
   pinMode (FUNCTION_SIM, INPUT_PULLDOWN);
+  
   rssi = WiFi.RSSI();
   bars = getBarsSignal(rssi);
   Main_Screen(Barca_Logo_bits,bars,"06-06-1996","12:00:00");
   //Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
   //Firebase.reconnectWiFi(true);
+  textUID = "";
 }
 
 void loop() {
+  delay(10);
   if(digitalRead(FUNCTION_READ125) == HIGH){
-    function = 1;
-  }else if(digitalRead(FUNCTION_SIM) == HIGH){
-    function = 2;
+    functionRead = 1;
+  }else{
+    functionRead = 0; 
   }
-  switch(function){
-    case 0:
-      printLocalTime();
-      rssi = WiFi.RSSI();
-      bars = getBarsSignal(rssi);  
-      Main_Screen(Barca_Logo_bits,bars,currentDay,currentTime);    
-      textUID = ReadTagNFC();
-      if (textUID != "") {
-        Oled_print(65,20,"Sending");
-        Serial.println(textUID);
-        Serial.println("Input Your Money: ");
-        function = 3;        
-        Bip(1);        
+  if(digitalRead(FUNCTION_SIM) == HIGH){
+    functionSend= 1;
+  }else{
+    printLocalTime();
+    rssi = WiFi.RSSI();
+    bars = getBarsSignal(rssi);  
+    Main_Screen(Barca_Logo_bits,bars,currentDay,currentTime);    
+    functionSend= 0;
+  }
+  switch(functionRead){
+    case 0:  
+      if(textUID == ""){
+        textUID = ReadTagNFC();
+        if (textUID != "") {
+          Oled_print(65,20,"Sending");
+          Serial.println(textUID);
+          Serial.println("Input Your Money: ");        
+          Bip(1);
+          while(1){
+            char key = keypad.getKey();
+            if (key != NO_KEY){
+              Serial.print(key);
+              if(key == '#'){
+                Serial.println();
+                Serial.println("Sending...");
+                break;
+              }else if(key == '*'){
+                Serial.println("Back");
+              }
+            }                              
+          }
+        }        
       }
       break;
+    default:
+      if(textUID == ""){
+        textUID = getTag125();
+        if (textUID != "") {
+          Serial.println(textUID);
+          Serial.println("Input Your Money: ");        
+          Bip(1);
+          while(1){
+            char key = keypad.getKey();
+            if (key != NO_KEY){
+              Serial.print(key);
+              if(key == '#'){
+                Serial.println();
+                Serial.println("Sending...");
+                break;
+              }else if(key == '*'){
+                Serial.println("Back");
+              }
+            }                              
+          }          
+        }            
+      }
+      break;
+  }
+
+  switch(functionSend){
     case 1:
-      printLocalTime();
-      rssi = WiFi.RSSI();
-      bars = getBarsSignal(rssi);  
-      Main_Screen(Barca_Logo_bits,bars,currentDay,currentTime);    
-      textUID = getTag125();
-      if (textUID != "") {
+      if(textUID != "" && textUID.length() > 6){
         Serial.println(textUID);
-        textUID = "";
+        Serial.println("Send 4G");
+        delay(1000);
+        textUID = "";     
+        Bip(2);   
       }
       break;
-    case 3:
-      Oled_print(62,20,"Success");
-      char key = keypad.getKey();
-      if (key != NO_KEY){
-        Serial.print(key);
-        if(key == '#'){
-          Serial.println();
-          Serial.println("Sending...");
-          function = 0;
-          Bip(2);              
-        }else if(key == '*'){
-          Serial.println("Back");
-        }
-      }         
+    default:
+      if(textUID != "" && textUID.length() > 6){
+        Serial.println(textUID);
+        Serial.println("Send Wifi");
+        delay(1000);
+        textUID = "";            
+        Bip(2);
+      }
       break;
   }
 }
