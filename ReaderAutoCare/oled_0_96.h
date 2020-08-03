@@ -40,6 +40,13 @@ void Oled_print(int x, int y, String str){
   display.drawString(x, y, str);
   display.display();
 }
+void Oled_print_money(int x, int y, String str, int xm, int ym, String money){
+  display.clear();
+  display.setFont(ArialMT_Plain_16);
+  display.drawString(x, y, str);
+  display.drawString(xm, ym, money);
+  display.display();
+}
 
 void Init_Oled(){
   
