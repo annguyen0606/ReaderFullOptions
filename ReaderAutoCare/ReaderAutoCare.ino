@@ -24,6 +24,7 @@ unsigned long currentTimeNow = millis();
 unsigned long previousTime = 0; 
 const long timeoutTime = 2000;
 unsigned long lastTime = 0;
+unsigned long timerDelay = 1800000;
 String currentDay = "";
 String currentTime = "";
 const byte ROWS = 4; 
@@ -46,7 +47,6 @@ char So_Tien_Pay[16];
 uint8_t viTriTien = 0;
 bool ESP_HTTPGET(String url, String idTag, String money);
 String serverName = "http://nfcapi.conek.net/conek/dulieutest?uidTag=";
-unsigned long timerDelay = 5000;
 bool wifiConfig = false;
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 0;
@@ -194,6 +194,20 @@ void setup() {
 }
 
 void loop() {
+  if ((millis() - lastTime) > timerDelay) {
+    String link = "http://nfcapi.conek.net/conek/activesim";
+    Oled_print(55,20,"Sending...");
+    if(SIM_HTTPGET(link) == true){
+      Oled_print(55,20,"Send failed");
+      Bip(4);      
+      Main_Screen(Barca_Logo_bits,bars,"06-06-1996","12:00:00");
+    }else{
+      Oled_print(60,20,"Send success");
+      Bip(2);
+      Main_Screen(Barca_Logo_bits,bars,"06-06-1996","12:00:00");
+    }
+    lastTime = millis();
+  }
   if(digitalRead(FUNCTION_KEYPAD) == HIGH){
     functionKeyPad = 1;
   }else{
